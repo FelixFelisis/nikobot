@@ -355,6 +355,8 @@ class TournamentManager(commands.Cog):
                 await asyncio.sleep(0.5)
 
         async def cancel():
+            nonlocal finished
+            finished = True
             self.bot.remove_listener(on_message)
             self.bot.remove_listener(on_reaction_add)
             update_task.cancel()
@@ -372,7 +374,9 @@ class TournamentManager(commands.Cog):
                 await ctx.send(file=file)
 
         async def on_message(message: discord.Message):
-            nonlocal current
+            nonlocal current, finished
+            if finished is True:
+                return
             if message.channel.id != channel.id:
                 return
             if not MESSAGE_CHECK.match(message.content):
@@ -390,6 +394,7 @@ class TournamentManager(commands.Cog):
                 participants.append(member.id)
             current += 1
             if current >= limit:
+                finished = True
                 self.bot.loop.create_task(cancel())
             try:
                 await message.add_reaction("✅")
@@ -397,6 +402,7 @@ class TournamentManager(commands.Cog):
                 pass
 
         async def on_reaction_add(reaction: discord.Reaction, user: discord.User):
+            nonlocal finished
             if reaction.message.id != message.id:
                 return
             if reaction.emoji != "❌":
@@ -407,6 +413,7 @@ class TournamentManager(commands.Cog):
             msg = await ctx.send("Annuler ?")
             result = await self._ask_for(ctx, msg, user, 10)
             if result is True:
+                finished = True
                 await cancel()
             else:
                 await ctx.send("L'inscription n'est pas annulée.")
@@ -448,6 +455,7 @@ class TournamentManager(commands.Cog):
             "- Si vous pensez qu'il y a eu un problème, contactez un PK Thunder\n\n"
             "Ouverture dans 10 secondes."
         )
+        finished = False
         self.bot.add_listener(on_reaction_add)
         await asyncio.sleep(10)
         self.bot.add_listener(on_message)
